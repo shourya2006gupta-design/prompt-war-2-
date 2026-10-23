@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import compression from "compression";
 import { helmetMiddleware, originValidationMiddleware } from "./middleware/security.js";
 import { sessionMiddleware } from "./middleware/session.js";
 import { globalLimiter } from "./middleware/rateLimit.js";
@@ -17,34 +18,49 @@ const __dirname = path.dirname(__filename);
 export function createApp() {
   const app = express();
 
-  // 1. Security Headers
+  // 1. Compression (Gzip / Brotli) for maximum network transfer efficiency
+  app.use(compression());
+
+  // 2. Security Headers
   app.use(helmetMiddleware);
 
-  // 2. Request body parsing with strict 50 KB limit
+  // 3. Request body parsing with strict 50 KB limit
   app.use(express.json({ limit: "50kb" }));
   app.use(express.urlencoded({ extended: false, limit: "50kb" }));
 
-  // 3. Cookie parser
+  // 4. Cookie parser
   app.use(cookieParser());
 
-  // 4. Origin validation on state-changing requests
+  // 5. Origin validation on state-changing requests
   app.use(originValidationMiddleware);
 
-  // 5. Session management (assigns HttpOnly cookie, rejects sessionId in body)
+  // 6. Session management (assigns HttpOnly cookie, rejects sessionId in body)
   app.use(sessionMiddleware);
 
-  // 6. Global rate limiter
+  // 7. Global rate limiter
   app.use(globalLimiter);
 
-  // 7. Static file serving (public files and safe static datasets)
+  // 8. Static file serving with efficient Cache-Control and ETag headers
   const publicDir = path.resolve(__dirname, "../public");
   const dataDir = path.resolve(__dirname, "../data");
 
-  app.use(express.static(publicDir));
+  const staticCacheOptions = {
+    maxAge: process.env.NODE_ENV === "production" ? "1d" : 0,
+    etag: true,
+    lastModified: true,
+  };
 
-  // Serve only safe public data (emergency datasets), excluding candidates
-  app.use("/data/emergency-keywords.json", express.static(path.join(dataDir, "emergency-keywords.json")));
-  app.use("/data/emergency-numbers.json", express.static(path.join(dataDir, "emergency-numbers.json")));
+  app.use(express.static(publicDir, staticCacheOptions));
+
+  // Serve only safe public data (emergency datasets) with caching
+  app.use(
+    "/data/emergency-keywords.json",
+    express.static(path.join(dataDir, "emergency-keywords.json"), staticCacheOptions)
+  );
+  app.use(
+    "/data/emergency-numbers.json",
+    express.static(path.join(dataDir, "emergency-numbers.json"), staticCacheOptions)
+  );
 
   // 8. API Routes
   app.use("/api", healthRouter);

@@ -10,6 +10,7 @@ import {
   MAX_GLOBAL_UPLOAD_STORAGE_BYTES,
   MAX_FILE_SIZE_BYTES,
   getGlobalUploadStorageBytes,
+  addGlobalUploadBytes,
 } from "../middleware/session.js";
 import { validateImageMagicBytes, stripImageMetadata } from "../services/image.js";
 
@@ -123,6 +124,7 @@ router.post(
       };
 
       req.session.files.set(fileId, fileRecord);
+      addGlobalUploadBytes(sanitizedBuffer.length);
 
       // Return clean response — NEVER leak GPS or internal memory locations
       return res.status(200).json({

@@ -29,6 +29,21 @@
   [headers.values]
     Cache-Control = "no-store"
 
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=3600"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
 # ── Function configuration ────────────────────────────────────────────────────
 [functions]
   node_bundler = "esbuild"

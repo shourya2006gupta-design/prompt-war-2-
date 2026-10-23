@@ -15,6 +15,11 @@ import {
   setJurisdiction,
   handleAiAnalysisResponse,
 } from "../../public/app.js";
+import {
+  loadEmergencyData,
+  getLoadedKeywords,
+  getLoadedNumbers,
+} from "../../src/services/emergency.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -194,6 +199,19 @@ describe("Phase A2: Emergency Safety Layer", () => {
 
       // Emergency banner MUST remain active
       expect(banner.classList.contains("hidden")).toBe(false);
+    });
+  });
+
+  describe("Emergency Dataset Loader Service", () => {
+    test("loadEmergencyData loads keywords and numbers datasets", () => {
+      const data = loadEmergencyData();
+      expect(Array.isArray(data.keywords)).toBe(true);
+      expect(Array.isArray(data.numbers)).toBe(true);
+      expect(data.keywords.length).toBeGreaterThan(0);
+      expect(data.numbers.length).toBeGreaterThan(0);
+
+      expect(getLoadedKeywords()).toEqual(data.keywords);
+      expect(getLoadedNumbers()).toEqual(data.numbers);
     });
   });
 });

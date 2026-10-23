@@ -19,6 +19,14 @@ import {
   getJurisdictionState,
   getActiveReport,
   resetReport,
+  getUploadedFiles,
+  getUploadedFileIds,
+  removeUploadedFile,
+  clearUploadedFiles,
+  formatFileSize,
+  renderImagePreviews,
+  handleFileUpload,
+  createTrustBadge,
 } from "../../public/app.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -275,6 +283,105 @@ describe("Phase A4: Reporting UI & Citizen Review Form", () => {
       expect(getJurisdictionState().confirmedJurisdiction).toBeNull();
       expect(document.getElementById("incident-results-section").classList.contains("hidden")).toBe(true);
       expect(document.getElementById("char-counter").textContent).toBe("0 / 2,000 characters");
+      expect(getUploadedFiles()).toEqual([]);
+    });
+  });
+
+  describe("Visual Evidence Upload & Preview Management", () => {
+    beforeEach(() => {
+      clearUploadedFiles();
+    });
+
+    test("formatFileSize formats bytes correctly", () => {
+      expect(formatFileSize(0)).toBe("0 B");
+      expect(formatFileSize(512)).toBe("512 B");
+      expect(formatFileSize(2048)).toBe("2.0 KB");
+      expect(formatFileSize(5 * 1024 * 1024)).toBe("5.0 MB");
+    });
+
+    test("createTrustBadge generates appropriate badge for trust states", () => {
+      const aiBadge = createTrustBadge("AI_INFERRED");
+      expect(aiBadge.textContent).toBe("AI Inferred");
+      expect(aiBadge.className).toContain("trust-badge--ai");
+
+      const userBadge = createTrustBadge("USER_VERIFIED");
+      expect(userBadge.textContent).toBe("User Verified");
+      expect(userBadge.className).toContain("trust-badge--user");
+
+      const reportedBadge = createTrustBadge("USER_REPORTED");
+      expect(reportedBadge.textContent).toBe("User Reported");
+      expect(reportedBadge.className).toContain("trust-badge--user");
+
+      const evidenceBadge = createTrustBadge("EVIDENCE_SUPPORTED");
+      expect(evidenceBadge.textContent).toBe("Evidence Supported");
+      expect(evidenceBadge.className).toContain("trust-badge--evidence");
+    });
+
+    test("clearUploadedFiles empties list and hides previews container", () => {
+      clearUploadedFiles();
+      expect(getUploadedFiles()).toEqual([]);
+      expect(getUploadedFileIds()).toEqual([]);
+      const container = document.getElementById("upload-preview-container");
+      expect(container.classList.contains("hidden")).toBe(true);
+    });
+
+    test("handleFileUpload rejects unsupported file format with message", async () => {
+      const fakeFile = new File(["fake content"], "malicious.exe", { type: "application/x-msdownload" });
+      await handleFileUpload([fakeFile]);
+
+      const errorEl = document.getElementById("upload-error");
+      expect(errorEl.classList.contains("hidden")).toBe(false);
+      expect(errorEl.textContent).toContain("Invalid file format");
+    });
+
+    test("handleFileUpload rejects oversized file (> 5 MB)", async () => {
+      const bigFile = new File(["x".repeat(100)], "huge.jpg", { type: "image/jpeg" });
+      Object.defineProperty(bigFile, "size", { value: 6 * 1024 * 1024 });
+
+      await handleFileUpload([bigFile]);
+
+      const errorEl = document.getElementById("upload-error");
+      expect(errorEl.classList.contains("hidden")).toBe(false);
+      expect(errorEl.textContent).toContain("exceeds the maximum allowed size of 5 MB");
+    });
+
+    test("handleFileUpload uploads valid image, renders preview, and removes file on click", async () => {
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          fileId: "test-file-uuid-1234",
+          originalName: "hazard-scene.jpg",
+          sizeBytes: 1024 * 100,
+          mimeType: "image/jpeg",
+        }),
+      });
+
+      const validFile = new File(["fake image content"], "hazard-scene.jpg", { type: "image/jpeg" });
+      Object.defineProperty(validFile, "size", { value: 1024 * 100 });
+
+      await handleFileUpload([validFile]);
+
+      expect(getUploadedFiles().length).toBe(1);
+      expect(getUploadedFileIds()).toEqual(["test-file-uuid-1234"]);
+
+      const container = document.getElementById("upload-preview-container");
+      expect(container.classList.contains("hidden")).toBe(false);
+      const card = container.querySelector(".upload-preview-card");
+      expect(card).not.toBeNull();
+      expect(card.textContent).toContain("hazard-scene.jpg");
+      expect(card.textContent).toContain("100.0 KB");
+
+      // Test remove button click
+      const removeBtn = card.querySelector(".upload-preview-remove");
+      expect(removeBtn).not.toBeNull();
+      removeBtn.click();
+
+      expect(getUploadedFiles()).toEqual([]);
+      expect(getUploadedFileIds()).toEqual([]);
+      expect(container.classList.contains("hidden")).toBe(true);
+
+      global.fetch = originalFetch;
     });
   });
 });

@@ -24,6 +24,30 @@ let confirmedJurisdiction = null;
 let inferredJurisdiction = null;
 let jurisdictionTrustState = null;
 
+let emergencyKeywordsRegex = null;
+
+/**
+ * Pre-compile emergency keyword regex for O(text) single-pass evaluation
+ */
+function rebuildKeywordRegex() {
+  if (!emergencyKeywords || emergencyKeywords.length === 0) {
+    emergencyKeywordsRegex = null;
+    return;
+  }
+  const escaped = emergencyKeywords
+    .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  emergencyKeywordsRegex = new RegExp(`(?:${escaped})`, "i");
+}
+
+rebuildKeywordRegex();
+
+// In-memory authority route cache to eliminate redundant network roundtrips
+const authorityCache = new Map();
+
+// Visual evidence uploads state
+let uploadedFiles = []; // Array<{ fileId: string, originalName: string, sizeBytes: number, mimeType: string, previewUrl?: string }>
+
 let activeReport = null;
 let activeIncidentId = null;
 let activeIncidentStatus = "DRAFT";
@@ -61,6 +85,7 @@ export const URGENCY_LEVELS = [
 export function setEmergencyKeywords(keywords) {
   if (Array.isArray(keywords)) {
     emergencyKeywords = keywords;
+    rebuildKeywordRegex();
   }
 }
 
@@ -124,6 +149,218 @@ export function getActiveIncidentStatus() {
 
 export function setActiveIncidentStatus(status) {
   activeIncidentStatus = status;
+}
+
+/**
+ * Return uploaded visual evidence files
+ */
+export function getUploadedFiles() {
+  return [...uploadedFiles];
+}
+
+/**
+ * Return uploaded file IDs for AI analyze request
+ */
+export function getUploadedFileIds() {
+  return uploadedFiles.map((f) => f.fileId);
+}
+
+/**
+ * Format bytes into human-readable string
+ * @param {number} bytes
+ * @returns {string}
+ */
+export function formatFileSize(bytes) {
+  if (typeof bytes !== "number" || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Remove an uploaded file by fileId and revoke object URL
+ * @param {string} fileId
+ */
+export function removeUploadedFile(fileId) {
+  const target = uploadedFiles.find((f) => f.fileId === fileId);
+  if (target && target.previewUrl && typeof URL !== "undefined" && URL.revokeObjectURL) {
+    try {
+      URL.revokeObjectURL(target.previewUrl);
+    } catch {
+      // Ignore
+    }
+  }
+  uploadedFiles = uploadedFiles.filter((f) => f.fileId !== fileId);
+  renderImagePreviews();
+}
+
+/**
+ * Clear all uploaded files and revoke object URLs
+ */
+export function clearUploadedFiles() {
+  uploadedFiles.forEach((f) => {
+    if (f.previewUrl && typeof URL !== "undefined" && URL.revokeObjectURL) {
+      try {
+        URL.revokeObjectURL(f.previewUrl);
+      } catch {
+        // Ignore
+      }
+    }
+  });
+  uploadedFiles = [];
+  renderImagePreviews();
+}
+
+/**
+ * Render uploaded visual evidence previews using DocumentFragment
+ */
+export function renderImagePreviews() {
+  const container = document.getElementById("upload-preview-container");
+  if (!container) return;
+
+  container.textContent = "";
+
+  if (uploadedFiles.length === 0) {
+    container.classList.add("hidden");
+    return;
+  }
+
+  container.classList.remove("hidden");
+  const fragment = document.createDocumentFragment();
+
+  uploadedFiles.forEach((file) => {
+    const card = document.createElement("div");
+    card.className = "upload-preview-card";
+    card.dataset.fileId = file.fileId;
+
+    if (file.previewUrl) {
+      const img = document.createElement("img");
+      img.className = "upload-preview-thumb";
+      img.src = file.previewUrl;
+      img.alt = `Sanitized preview: ${file.originalName}`;
+      card.appendChild(img);
+    } else {
+      const icon = document.createElement("span");
+      icon.className = "upload-preview-icon";
+      icon.textContent = "📷";
+      card.appendChild(icon);
+    }
+
+    const details = document.createElement("div");
+    details.className = "upload-preview-details";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "upload-preview-name";
+    nameSpan.textContent = file.originalName;
+
+    const sizeSpan = document.createElement("span");
+    sizeSpan.className = "upload-preview-size";
+    sizeSpan.textContent = `${formatFileSize(file.sizeBytes)} • Metadata Stripped`;
+
+    details.appendChild(nameSpan);
+    details.appendChild(sizeSpan);
+    card.appendChild(details);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "upload-preview-remove";
+    removeBtn.setAttribute("aria-label", `Remove image ${file.originalName}`);
+    removeBtn.textContent = "✕";
+    removeBtn.addEventListener("click", () => {
+      removeUploadedFile(file.fileId);
+    });
+
+    card.appendChild(removeBtn);
+    fragment.appendChild(card);
+  });
+
+  container.appendChild(fragment);
+}
+
+/**
+ * Validate and upload visual evidence files to /api/upload
+ * @param {FileList|File[]} fileList
+ */
+export async function handleFileUpload(fileList) {
+  if (!fileList || fileList.length === 0) return;
+
+  const errorEl = document.getElementById("upload-error");
+  if (errorEl) {
+    errorEl.classList.add("hidden");
+    errorEl.textContent = "";
+  }
+
+  const filesToUpload = Array.from(fileList);
+
+  if (uploadedFiles.length + filesToUpload.length > 5) {
+    if (errorEl) {
+      errorEl.textContent = `Upload limit reached: Maximum of 5 images allowed per session (${uploadedFiles.length} currently attached).`;
+      errorEl.classList.remove("hidden");
+    }
+    return;
+  }
+
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+  const csrfToken = getCookie("csrf_token");
+
+  for (const file of filesToUpload) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      if (errorEl) {
+        errorEl.textContent = `Invalid file format for "${file.name}". Allowed formats: JPEG, PNG, WebP.`;
+        errorEl.classList.remove("hidden");
+      }
+      continue;
+    }
+
+    if (file.size > MAX_SIZE) {
+      if (errorEl) {
+        errorEl.textContent = `File "${file.name}" exceeds the maximum allowed size of 5 MB.`;
+        errorEl.classList.remove("hidden");
+      }
+      continue;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Upload failed (HTTP ${res.status})`);
+      }
+
+      const uploadResult = await res.json();
+      const previewUrl = typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL(file)
+        : null;
+
+      uploadedFiles.push({
+        fileId: uploadResult.fileId,
+        originalName: uploadResult.originalName || file.name,
+        sizeBytes: uploadResult.sizeBytes || file.size,
+        mimeType: uploadResult.mimeType || file.type,
+        previewUrl,
+      });
+
+      renderImagePreviews();
+    } catch (err) {
+      console.error("[SafeRoute Upload Error]", err);
+      if (errorEl) {
+        errorEl.textContent = `Failed to upload "${file.name}": ${err.message}`;
+        errorEl.classList.remove("hidden");
+      }
+    }
+  }
 }
 
 /**
@@ -338,6 +575,8 @@ export function renderSessionDashboard() {
 
   if (clearBtn) clearBtn.classList.remove("hidden");
 
+  const fragment = document.createDocumentFragment();
+
   incidents.forEach(inc => {
     const card = document.createElement("article");
     card.className = "incident-item-card";
@@ -430,8 +669,10 @@ export function renderSessionDashboard() {
     actions.appendChild(removeBtn);
     card.appendChild(actions);
 
-    container.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  container.appendChild(fragment);
 }
 
 /**
@@ -463,8 +704,10 @@ export async function loadStaticData() {
  */
 export function detectEmergencyKeywords(text) {
   if (!text || typeof text !== "string") return false;
-  const lower = text.toLowerCase();
-  return emergencyKeywords.some(keyword => lower.includes(keyword.toLowerCase()));
+  if (!emergencyKeywordsRegex) {
+    rebuildKeywordRegex();
+  }
+  return emergencyKeywordsRegex ? emergencyKeywordsRegex.test(text) : false;
 }
 
 /**
@@ -555,6 +798,9 @@ export function createTrustBadge(trustState) {
   if (trustState === "AI_INFERRED") {
     badge.className = "trust-badge trust-badge--ai";
     badge.textContent = "AI Inferred";
+  } else if (trustState === "EVIDENCE_SUPPORTED") {
+    badge.className = "trust-badge trust-badge--evidence";
+    badge.textContent = "Evidence Supported";
   } else if (trustState === "USER_REPORTED") {
     badge.className = "trust-badge trust-badge--user";
     badge.textContent = "User Reported";
@@ -1043,10 +1289,12 @@ export async function handleReportSubmit(e) {
   try {
     const csrfToken = getCookie("csrf_token");
 
+    const fileIds = getUploadedFileIds();
     const payload = {
       message,
       ...(locationText ? { locationText } : {}),
       ...(conversationTurns.length > 0 ? { priorTurns: conversationTurns } : {}),
+      ...(fileIds.length > 0 ? { fileIds } : {}),
     };
 
     const res = await fetch("/api/analyze", {
@@ -1134,6 +1382,16 @@ export function resetReport() {
   activeIncidentCreatedAt = null;
   conversationTurns = [];
   setJurisdiction(null, null);
+  clearUploadedFiles();
+
+  const fileInput = document.getElementById("hazard-image");
+  if (fileInput) fileInput.value = "";
+
+  const uploadError = document.getElementById("upload-error");
+  if (uploadError) {
+    uploadError.classList.add("hidden");
+    uploadError.textContent = "";
+  }
 
   const form = document.getElementById("hazard-report-form");
   if (form) form.reset();
@@ -1184,26 +1442,35 @@ export async function handleFindAuthority() {
   try {
     const csrfToken = getCookie("csrf_token");
     const hazardCategory = activeReport?.hazardCategory?.value || "UNKNOWN";
+    const confirmedJurisdiction = jurisdictionState.confirmedJurisdiction;
+    const cacheKey = `${hazardCategory}:${confirmedJurisdiction.toLowerCase().trim()}`;
 
-    const res = await fetch("/api/route", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
-      },
-      body: JSON.stringify({
-        hazardCategory,
-        confirmedJurisdiction: jurisdictionState.confirmedJurisdiction,
-        userExplicitlyConfirmed: true,
-      }),
-    });
+    let routeResult;
+    if (authorityCache.has(cacheKey)) {
+      routeResult = authorityCache.get(cacheKey);
+    } else {
+      const res = await fetch("/api/route", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          hazardCategory,
+          confirmedJurisdiction,
+          userExplicitlyConfirmed: true,
+        }),
+      });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `Routing lookup failed (HTTP ${res.status}).`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Routing lookup failed (HTTP ${res.status}).`);
+      }
+
+      routeResult = await res.json();
+      authorityCache.set(cacheKey, routeResult);
     }
 
-    const routeResult = await res.json();
     renderAuthorityRoutingResult(routeResult);
 
     if (routeResult.authorities && routeResult.authorities.length > 0) {
@@ -1284,6 +1551,8 @@ export function renderAuthorityRoutingResult(routeResult) {
     box.appendChild(noMatchCard);
     return;
   }
+
+  const fragment = document.createDocumentFragment();
 
   authorities.forEach(auth => {
     const card = document.createElement("article");
@@ -1370,8 +1639,10 @@ export function renderAuthorityRoutingResult(routeResult) {
       card.appendChild(meta);
     }
 
-    box.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  box.appendChild(fragment);
 }
 
 function createSubmissionConfirmedBanner(authorityName) {
@@ -1421,6 +1692,42 @@ export function initApp() {
   const findAuthBtn = document.getElementById("find-authority-btn");
   if (findAuthBtn) {
     findAuthBtn.addEventListener("click", handleFindAuthority);
+  }
+
+  // Visual evidence file input listener
+  const fileInput = document.getElementById("hazard-image");
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFileUpload(e.target.files);
+      }
+    });
+  }
+
+  // Visual evidence drag and drop dropzone listeners
+  const dropzone = document.getElementById("upload-dropzone");
+  if (dropzone) {
+    ["dragenter", "dragover"].forEach((evtName) => {
+      dropzone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add("upload-dropzone--dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((evtName) => {
+      dropzone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove("upload-dropzone--dragover");
+      });
+    });
+
+    dropzone.addEventListener("drop", (e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileUpload(e.dataTransfer.files);
+      }
+    });
   }
 
   renderSessionDashboard();

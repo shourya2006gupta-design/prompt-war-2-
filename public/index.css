@@ -470,11 +470,96 @@ textarea.form-control {
   line-height: 1.4;
 }
 
+.upload-dropzone--dragover {
+  border-color: var(--primary);
+  background-color: var(--primary-tint);
+  transform: scale(1.005);
+}
+
 .upload-previews {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-top: 0.5rem;
+}
+
+.upload-preview-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.upload-preview-card:hover {
+  border-color: var(--border-focus);
+}
+
+.upload-preview-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-subtle);
+}
+
+.upload-preview-icon {
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.upload-preview-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 220px;
+}
+
+.upload-preview-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upload-preview-size {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.upload-preview-remove {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
+  transition: all 0.15s ease;
+}
+
+.upload-preview-remove:hover {
+  background-color: var(--emergency-accent);
+  color: #ffffff;
+  border-color: var(--emergency-accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -703,6 +788,12 @@ textarea.form-control {
   background-color: var(--badge-user-bg);
   color: var(--badge-user-text);
   border: 1px solid var(--badge-user-border);
+}
+
+.trust-badge--evidence {
+  background-color: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #c4b5fd;
 }
 
 /* --------------------------------------------------------------------------

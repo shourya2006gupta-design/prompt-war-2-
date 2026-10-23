@@ -6,6 +6,13 @@ import {
   MAX_ACTIVE_SESSIONS,
   SESSION_INACTIVITY_MS,
   sweepExpiredSessions,
+  startSessionCleanupTimer,
+  stopSessionCleanupTimer,
+  getActiveSessionCount,
+  getSession,
+  getGlobalUploadStorageBytes,
+  addGlobalUploadBytes,
+  subtractGlobalUploadBytes,
 } from "../../src/middleware/session.js";
 import crypto from "crypto";
 import { setGenAIClient } from "../../src/services/gemini.js";
@@ -277,6 +284,46 @@ describe("Phase A1: Session and Security Middleware Hardening", () => {
 
       expect(rateLimitedRes.status).toBe(429);
       expect(rateLimitedRes.body.error).toContain("Too many analysis requests");
+    });
+  });
+
+  describe("Session Lifecycle & Upload Storage Tracking", () => {
+    test("tracks session count and retrieves active session by ID", async () => {
+      const getRes = await request(app).get("/").set("X-Forwarded-For", "192.168.1.50");
+      expect(getActiveSessionCount()).toBeGreaterThan(0);
+
+      const cookies = getRes.headers["set-cookie"];
+      const sessionCookie = cookies.find((c) => c.startsWith("session_id="));
+      const sessionId = sessionCookie.split(";")[0].split("=")[1];
+
+      const sessionObj = getSession(sessionId);
+      expect(sessionObj).not.toBeNull();
+      expect(sessionObj.id).toBe(sessionId);
+      expect(getSession(null)).toBeNull();
+    });
+
+    test("manages session cleanup timer lifecycle cleanly", () => {
+      startSessionCleanupTimer();
+      // Calling start multiple times is safe and idempotent
+      startSessionCleanupTimer();
+      stopSessionCleanupTimer();
+      // Calling stop multiple times is safe and idempotent
+      stopSessionCleanupTimer();
+    });
+
+    test("tracks and reclaims global upload storage bytes in O(1)", () => {
+      clearAllSessions();
+      expect(getGlobalUploadStorageBytes()).toBe(0);
+
+      addGlobalUploadBytes(1024 * 500);
+      expect(getGlobalUploadStorageBytes()).toBe(1024 * 500);
+
+      subtractGlobalUploadBytes(1024 * 200);
+      expect(getGlobalUploadStorageBytes()).toBe(1024 * 300);
+
+      // Never drops below zero
+      subtractGlobalUploadBytes(1024 * 1000);
+      expect(getGlobalUploadStorageBytes()).toBe(0);
     });
   });
 });

@@ -9,30 +9,48 @@ export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // In-memory session store: Map<sessionId, SessionData>
 const sessions = new Map();
+let globalUploadStorageBytes = 0;
 
 /**
- * Calculate total in-memory upload bytes across all active sessions
- * @returns {number}
+ * Add bytes to the global upload storage counter
+ * @param {number} bytes
  */
-export function getGlobalUploadStorageBytes() {
-  let total = 0;
-  for (const session of sessions.values()) {
-    if (session.files && session.files instanceof Map) {
-      for (const file of session.files.values()) {
-        total += file.sizeBytes || 0;
-      }
-    }
+export function addGlobalUploadBytes(bytes) {
+  if (typeof bytes === "number" && bytes > 0) {
+    globalUploadStorageBytes += bytes;
   }
-  return total;
 }
 
 /**
- * Sweep expired sessions from memory
+ * Subtract bytes from the global upload storage counter
+ * @param {number} bytes
+ */
+export function subtractGlobalUploadBytes(bytes) {
+  if (typeof bytes === "number" && bytes > 0) {
+    globalUploadStorageBytes = Math.max(0, globalUploadStorageBytes - bytes);
+  }
+}
+
+/**
+ * Calculate total in-memory upload bytes across all active sessions in O(1) time
+ * @returns {number}
+ */
+export function getGlobalUploadStorageBytes() {
+  return globalUploadStorageBytes;
+}
+
+/**
+ * Sweep expired sessions from memory and reclaim storage counters
  */
 export function sweepExpiredSessions() {
   const now = Date.now();
   for (const [sessionId, session] of sessions.entries()) {
     if (now - session.lastActive > SESSION_INACTIVITY_MS) {
+      if (session.files && session.files instanceof Map) {
+        for (const file of session.files.values()) {
+          subtractGlobalUploadBytes(file.sizeBytes || 0);
+        }
+      }
       sessions.delete(sessionId);
     }
   }
@@ -46,10 +64,11 @@ export function getActiveSessionCount() {
 }
 
 /**
- * Clear all sessions (used in testing)
+ * Clear all sessions and reset storage counter (used in testing)
  */
 export function clearAllSessions() {
   sessions.clear();
+  globalUploadStorageBytes = 0;
 }
 
 /**
@@ -98,6 +117,11 @@ export function sessionMiddleware(req, res, next) {
     const session = sessions.get(sessionId);
     // Check if expired
     if (now - session.lastActive > SESSION_INACTIVITY_MS) {
+      if (session.files instanceof Map) {
+        for (const file of session.files.values()) {
+          subtractGlobalUploadBytes(file.sizeBytes || 0);
+        }
+      }
       sessions.delete(sessionId);
       sessionId = null;
     } else {
