@@ -1149,6 +1149,228 @@ export function resetReport() {
 }
 
 /**
+ * Handle authority routing lookup
+ */
+export async function handleFindAuthority() {
+  const findAuthBtn = document.getElementById("find-authority-btn");
+  const routingHint = document.getElementById("routing-hint");
+  const liveRegion = document.getElementById("analysis-live-region");
+  const resultsBox = document.getElementById("authority-results-box");
+
+  const jurisdictionState = getJurisdictionState();
+  if (jurisdictionState.jurisdictionTrustState !== "USER_REPORTED" || !jurisdictionState.confirmedJurisdiction) {
+    if (routingHint) {
+      routingHint.textContent = "Please confirm your jurisdiction above before routing.";
+      routingHint.style.color = "var(--emergency-accent)";
+    }
+    return;
+  }
+
+  if (findAuthBtn) {
+    findAuthBtn.disabled = true;
+    findAuthBtn.textContent = "Routing to verified authority...";
+  }
+  if (liveRegion) {
+    liveRegion.textContent = "Querying verified civic authority registers for confirmed jurisdiction...";
+  }
+
+  try {
+    const csrfToken = getCookie("csrf_token");
+    const hazardCategory = activeReport?.hazardCategory?.value || "UNKNOWN";
+
+    const res = await fetch("/api/route", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      },
+      body: JSON.stringify({
+        hazardCategory,
+        confirmedJurisdiction: jurisdictionState.confirmedJurisdiction,
+        userExplicitlyConfirmed: true,
+      }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Routing lookup failed (HTTP ${res.status}).`);
+    }
+
+    const routeResult = await res.json();
+    renderAuthorityRoutingResult(routeResult);
+
+    if (routeResult.authorities && routeResult.authorities.length > 0) {
+      const topAuth = routeResult.authorities[0];
+      if (activeReport) {
+        activeReport.authorityHandoff = {
+          authorityId: topAuth.id,
+          authorityName: topAuth.name,
+          reportingUrl: topAuth.reportingUrl,
+          providedAt: new Date().toISOString(),
+        };
+      }
+      activeIncidentStatus = "LINK_PROVIDED";
+      saveCurrentIncident("LINK_PROVIDED");
+
+      if (liveRegion) {
+        liveRegion.textContent = `Verified authority found: ${topAuth.name}. Direct reporting link provided.`;
+      }
+    } else {
+      if (liveRegion) {
+        liveRegion.textContent = "No verified digital reporting channel matches your jurisdiction and hazard type.";
+      }
+    }
+  } catch (err) {
+    console.error("[SafeRoute Route Error]", err);
+    if (resultsBox) {
+      resultsBox.textContent = "";
+      resultsBox.classList.remove("hidden");
+      const errP = document.createElement("p");
+      errP.className = "form-error";
+      errP.textContent = err.message || "Failed to find authorities.";
+      resultsBox.appendChild(errP);
+    }
+    if (liveRegion) {
+      liveRegion.textContent = `Routing error: ${err.message}`;
+    }
+  } finally {
+    if (findAuthBtn) {
+      findAuthBtn.disabled = false;
+      findAuthBtn.textContent = "Find Reporting Authority";
+    }
+  }
+}
+
+/**
+ * Render authority routing result strictly via textContent
+ * @param {object} routeResult
+ */
+export function renderAuthorityRoutingResult(routeResult) {
+  const box = document.getElementById("authority-results-box");
+  if (!box) return;
+
+  box.textContent = "";
+  box.classList.remove("hidden");
+
+  const authorities = routeResult.authorities || [];
+  const jurisdictionState = getJurisdictionState();
+
+  if (authorities.length === 0) {
+    const noMatchCard = document.createElement("div");
+    noMatchCard.className = "no-match-card";
+
+    const title = document.createElement("h4");
+    title.className = "no-match-title";
+    title.textContent = "No Verified Online Reporting Channel Identified";
+
+    const desc = document.createElement("p");
+    desc.className = "no-match-text";
+    desc.textContent = `SafeRoute has not verified a digital hazard intake portal for this hazard in ${jurisdictionState.confirmedJurisdiction || "your selected region"}.`;
+
+    const note = document.createElement("p");
+    note.className = "no-match-guidance";
+    note.textContent = "SafeRoute never fabricates unverified government URLs. Please contact your local municipal council or highways department directly. For life-threatening emergencies, call your local emergency number immediately.";
+
+    noMatchCard.appendChild(title);
+    noMatchCard.appendChild(desc);
+    noMatchCard.appendChild(note);
+    box.appendChild(noMatchCard);
+    return;
+  }
+
+  authorities.forEach(auth => {
+    const card = document.createElement("article");
+    card.className = "authority-card";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "authority-header";
+
+    const name = document.createElement("h4");
+    name.className = "authority-name";
+    name.textContent = auth.name;
+
+    const tag = document.createElement("span");
+    tag.className = "authority-verified-tag";
+    tag.textContent = "Verified Official Channel";
+
+    header.appendChild(name);
+    header.appendChild(tag);
+    card.appendChild(header);
+
+    // Coverage note
+    if (auth.jurisdiction?.coverageNote) {
+      const coverage = document.createElement("p");
+      coverage.className = "authority-coverage";
+      coverage.textContent = `Coverage: ${auth.jurisdiction.coverageNote}`;
+      card.appendChild(coverage);
+    }
+
+    // Honest Handoff Disclaimer Box
+    const disclaimerBox = document.createElement("div");
+    disclaimerBox.className = "authority-disclaimer-box";
+    disclaimerBox.setAttribute("role", "note");
+
+    const disclaimerTitle = document.createElement("strong");
+    disclaimerTitle.textContent = "Submission Transparency Notice: ";
+    disclaimerBox.appendChild(disclaimerTitle);
+
+    const disclaimerBody = document.createTextNode(auth.disclaimer || routeResult.handoffDisclaimer || "SafeRoute has not submitted this report on your behalf. You must use the link above to submit your report directly to the responsible authority.");
+    disclaimerBox.appendChild(disclaimerBody);
+    card.appendChild(disclaimerBox);
+
+    // Action bar with official external portal link and submission confirmation button
+    const actionBar = document.createElement("div");
+    actionBar.className = "authority-action-bar";
+
+    const link = document.createElement("a");
+    link.href = auth.reportingUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "btn btn-primary authority-link";
+    link.textContent = "Open Official Reporting Portal ↗";
+
+    const confirmSubBtn = document.createElement("button");
+    confirmSubBtn.type = "button";
+    confirmSubBtn.className = "btn btn-secondary btn-confirm-submission";
+    confirmSubBtn.textContent = "I have submitted this report on the official website";
+
+    confirmSubBtn.addEventListener("click", () => {
+      activeIncidentStatus = "USER_CONFIRMED_SUBMISSION";
+      saveCurrentIncident("USER_CONFIRMED_SUBMISSION");
+
+      confirmSubBtn.replaceWith(createSubmissionConfirmedBanner(auth.name));
+
+      const liveRegion = document.getElementById("analysis-live-region");
+      if (liveRegion) {
+        liveRegion.textContent = `Report marked as submitted to ${auth.name}.`;
+      }
+    });
+
+    actionBar.appendChild(link);
+    actionBar.appendChild(confirmSubBtn);
+    card.appendChild(actionBar);
+
+    // Verification metadata
+    if (auth.verificationSource) {
+      const meta = document.createElement("p");
+      meta.className = "authority-meta";
+      meta.textContent = `Verified on ${auth.verificationSource.verifiedDate} by ${auth.verificationSource.verifiedBy} (${auth.verificationSource.url})`;
+      card.appendChild(meta);
+    }
+
+    box.appendChild(card);
+  });
+}
+
+function createSubmissionConfirmedBanner(authorityName) {
+  const banner = document.createElement("div");
+  banner.className = "submission-confirmed-banner";
+  banner.textContent = `✓ Submission Confirmed: You confirmed submitting this hazard report to ${authorityName}.`;
+  return banner;
+}
+
+/**
  * Initialize event listeners
  */
 export function initApp() {
@@ -1183,6 +1405,11 @@ export function initApp() {
   const clearSessionBtn = document.getElementById("clear-session-btn");
   if (clearSessionBtn) {
     clearSessionBtn.addEventListener("click", clearAllSessionIncidents);
+  }
+
+  const findAuthBtn = document.getElementById("find-authority-btn");
+  if (findAuthBtn) {
+    findAuthBtn.addEventListener("click", handleFindAuthority);
   }
 
   renderSessionDashboard();

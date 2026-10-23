@@ -60,6 +60,14 @@ export function loadAuthorities(filePath = DEFAULT_AUTHORITIES_PATH) {
  * @returns {{ authorities: any[], noMatchReason?: string, handoffDisclaimer: string }}
  */
 export function findAuthorities(confirmedJurisdiction, hazardCategory, userExplicitlyConfirmed = false) {
+  if (loadedAuthorities.length === 0 && fs.existsSync(DEFAULT_AUTHORITIES_PATH)) {
+    try {
+      loadAuthorities();
+    } catch {
+      // Continue with whatever is loaded
+    }
+  }
+
   // 1. Explicit user confirmation requirement
   if (!userExplicitlyConfirmed || !confirmedJurisdiction || confirmedJurisdiction.trim() === "") {
     return {

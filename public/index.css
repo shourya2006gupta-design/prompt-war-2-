@@ -562,6 +562,124 @@ body {
   color: var(--text-dim);
 }
 
+/* Authority Handoff Cards & Disclaimers */
+.authority-results {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.authority-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-blue);
+  padding: 1.5rem;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.authority-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.authority-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.authority-verified-tag {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.authority-coverage {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.authority-disclaimer-box {
+  background-color: rgba(217, 119, 6, 0.15);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.authority-disclaimer-box strong {
+  color: #fbbf24;
+}
+
+.authority-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.authority-meta {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 0.75rem;
+}
+
+.submission-confirmed-banner {
+  background-color: rgba(16, 185, 129, 0.2);
+  border: 1px solid var(--badge-user-border);
+  color: var(--badge-user-text);
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.no-match-card {
+  background-color: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  padding: 1.75rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.no-match-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.no-match-text {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.no-match-guidance {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
 .report-completion-actions {
   margin-top: 1.75rem;
   display: flex;
