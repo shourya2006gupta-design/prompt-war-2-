@@ -4,10 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="SafeRoute — GenAI-powered public infrastructure hazard documentation and response guidance.">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0a0e17">
   <title>SafeRoute — Public Infrastructure Hazard Reporting</title>
+  <!-- Preconnect to Google Fonts origin to eliminate render-blocking DNS/TLS round-trips -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./index.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<meta name="color-scheme" content="dark light">
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -75,7 +79,7 @@
             <label for="hazard-description" class="form-label">
               Hazard Description <span class="required" aria-hidden="true">*</span>
             </label>
-            <span id="char-counter" class="char-counter" aria-live="polite">0 / 2,000 characters</span>
+            <span id="char-counter" class="char-counter" aria-live="polite" aria-atomic="true">0 / 2,000 characters</span>
           </div>
           <textarea
             id="hazard-description"

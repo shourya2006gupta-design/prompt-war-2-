@@ -9,7 +9,10 @@ export const helmetMiddleware = helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      // Allow Google Fonts stylesheet; 'unsafe-inline' retained for runtime style mutations
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      // Allow Google Fonts glyph files
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
       frameAncestors: ["'none'"],

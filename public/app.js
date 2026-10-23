@@ -981,7 +981,8 @@ export function renderClarificationsSection(report) {
  */
 export function getCookie(name) {
   if (typeof document === "undefined" || !document.cookie) return null;
-  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp("(^| )" + escapedName + "=([^;]+)"));
   return match ? decodeURIComponent(match[2]) : null;
 }
 
@@ -1068,6 +1069,9 @@ export async function handleReportSubmit(e) {
     // Record turn in conversation turns
     conversationTurns.push({ role: "user", text: message });
     conversationTurns.push({ role: "model", text: report.incidentSummary || "Report analyzed." });
+    if (conversationTurns.length > 4) {
+      conversationTurns = conversationTurns.slice(-4);
+    }
 
     handleAiAnalysisResponse(report);
   } catch (err) {
@@ -1331,7 +1335,11 @@ export function renderAuthorityRoutingResult(routeResult) {
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.className = "btn btn-primary authority-link";
-    link.textContent = "Open Official Reporting Portal ↗";
+    link.appendChild(document.createTextNode("Open Official Reporting Portal ↗ "));
+    const srLinkSpan = document.createElement("span");
+    srLinkSpan.className = "sr-only";
+    srLinkSpan.textContent = "(opens in new tab)";
+    link.appendChild(srLinkSpan);
 
     const confirmSubBtn = document.createElement("button");
     confirmSubBtn.type = "button";

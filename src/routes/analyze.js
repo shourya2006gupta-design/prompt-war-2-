@@ -1,8 +1,10 @@
 import express from "express";
+import crypto from "crypto";
 import { AnalyzeRequestSchema } from "../schemas/api.js";
 import { analyzeHazardInput, AiValidationError } from "../services/gemini.js";
 import { analyzeLimiter } from "../middleware/rateLimit.js";
 import { csrfProtection } from "../middleware/csrf.js";
+
 
 const router = express.Router();
 
