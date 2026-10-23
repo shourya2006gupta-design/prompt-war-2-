@@ -8,6 +8,7 @@ import { sessionMiddleware } from "./middleware/session.js";
 import { globalLimiter } from "./middleware/rateLimit.js";
 import healthRouter from "./routes/health.js";
 import routeRouter from "./routes/route.js";
+import analyzeRouter from "./routes/analyze.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +48,7 @@ export function createApp() {
   // 8. API Routes
   app.use("/api", healthRouter);
   app.use("/api", routeRouter);
+  app.use("/api", analyzeRouter);
 
   // 9. 404 handler for unknown API routes
   app.use("/api", (req, res) => {
