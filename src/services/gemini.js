@@ -91,10 +91,14 @@ export async function verifyModelAvailability(timeoutMs = 5000) {
 /**
  * Build isolated system prompt with content boundaries
  */
-export function buildPrompt(message, locationText, priorTurns = []) {
+export function buildPrompt(message, locationText, priorTurns = [], hasImages = false) {
   const conversationContext = priorTurns.length > 0
     ? priorTurns.map(t => `${t.role.toUpperCase()}: ${t.text}`).join("\n")
     : "No prior turns.";
+
+  const imageDirective = hasImages
+    ? "\n10. Attached visual evidence (photos) provided. Analyze visual details carefully to determine hazard severity, physical damage, and risk urgency."
+    : "";
 
   return `
 You are SafeRoute's civic infrastructure hazard extraction engine.
@@ -112,7 +116,7 @@ CORE SAFETY AND EXTRACTION RULES:
    "IMMEDIATE", "HIGH", "MEDIUM", "LOW", "UNKNOWN".
 7. Allowed confidence values: "HIGH", "MEDIUM", "LOW".
 8. For clarificationQuestions, each question must have a valid UUID for "id", the target field for "field", and a concise question for "question".
-9. Set detectedLanguage to a 2-letter ISO 639-1 code (e.g. "en", "es").
+9. Set detectedLanguage to a 2-letter ISO 639-1 code (e.g. "en", "es").${imageDirective}
 
 CONVERSATION CONTEXT:
 ${conversationContext}
@@ -163,19 +167,35 @@ export function validateAiResponse(rawOutput) {
 
 /**
  * Execute hazard analysis via Gemini API
+ * Supports text and multimodal image analysis (Phase B)
+ * 
  * @param {string} message
  * @param {string} [locationText]
  * @param {Array} [priorTurns]
+ * @param {Array} [images] Array of { buffer, mimeType }
  */
-export async function analyzeHazardInput(message, locationText, priorTurns = []) {
+export async function analyzeHazardInput(message, locationText, priorTurns = [], images = []) {
   const client = getGenAIClient();
-  const prompt = buildPrompt(message, locationText, priorTurns);
+  const hasImages = Array.isArray(images) && images.length > 0;
+  const prompt = buildPrompt(message, locationText, priorTurns, hasImages);
+
+  const contents = hasImages
+    ? [
+        ...images.map(img => ({
+          inlineData: {
+            data: img.buffer.toString("base64"),
+            mimeType: img.mimeType,
+          },
+        })),
+        { text: prompt },
+      ]
+    : prompt;
 
   let response;
   try {
     response = await client.models.generateContent({
       model: config.GEMINI_MODEL,
-      contents: prompt,
+      contents,
       config: {
         responseMimeType: "application/json",
       },
@@ -195,6 +215,6 @@ export async function analyzeHazardInput(message, locationText, priorTurns = [])
   // Validate strictly against schema (throws 422 if malformed or containing coordinates)
   const validatedData = validateAiResponse(responseText);
 
-  // Wrap validated fields with server-assigned trust states
-  return buildTrustAnnotatedReport(validatedData, config.GEMINI_MODEL);
+  // Wrap validated fields with server-assigned trust states (EVIDENCE_SUPPORTED if visual evidence attached)
+  return buildTrustAnnotatedReport(validatedData, config.GEMINI_MODEL, hasImages);
 }

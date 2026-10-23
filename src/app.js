@@ -9,6 +9,7 @@ import { globalLimiter } from "./middleware/rateLimit.js";
 import healthRouter from "./routes/health.js";
 import routeRouter from "./routes/route.js";
 import analyzeRouter from "./routes/analyze.js";
+import uploadRouter from "./routes/upload.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +50,7 @@ export function createApp() {
   app.use("/api", healthRouter);
   app.use("/api", routeRouter);
   app.use("/api", analyzeRouter);
+  app.use("/api", uploadRouter);
 
   // 9. 404 handler for unknown API routes
   app.use("/api", (req, res) => {

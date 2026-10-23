@@ -31,3 +31,13 @@ export const routeLimiter = rateLimit({
   keyGenerator,
   message: { error: "Too many routing requests. Limit is 20 per minute." },
 });
+
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5, // 5 uploads per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
+  keyGenerator,
+  message: { error: "Too many upload requests. Limit is 5 per minute." },
+});

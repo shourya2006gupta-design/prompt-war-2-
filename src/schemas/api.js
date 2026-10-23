@@ -12,6 +12,7 @@ export const AnalyzeRequestSchema = z.object({
     role: z.enum(["user", "model"]),
     text: z.string().max(500),
   })).max(4).optional(),
+  fileIds: z.array(z.string().uuid()).max(5).optional(),
 }).strict();
 
 /**

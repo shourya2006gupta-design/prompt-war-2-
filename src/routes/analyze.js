@@ -16,11 +16,34 @@ router.post("/analyze", analyzeLimiter, csrfProtection, async (req, res, next) =
     });
   }
 
-  const { message, locationText, priorTurns } = result.data;
+  const { message, locationText, priorTurns, fileIds } = result.data;
+
+  // Retrieve and bind session files if fileIds are provided
+  const images = [];
+  if (Array.isArray(fileIds) && fileIds.length > 0) {
+    if (!req.session || !req.session.files) {
+      return res.status(404).json({
+        error: "Not Found: No uploaded files found in current session context.",
+      });
+    }
+
+    for (const id of fileIds) {
+      const fileRecord = req.session.files.get(id);
+      if (!fileRecord) {
+        return res.status(404).json({
+          error: `Not Found: Uploaded file '${id}' was not found or has expired for this session.`,
+        });
+      }
+      images.push({
+        buffer: fileRecord.buffer,
+        mimeType: fileRecord.mimeType,
+      });
+    }
+  }
 
   try {
-    // 2. Call AI analysis pipeline with strict schema validation
-    const structuredReport = await analyzeHazardInput(message, locationText, priorTurns);
+    // 2. Call AI analysis pipeline with strict schema validation and multimodal support
+    const structuredReport = await analyzeHazardInput(message, locationText, priorTurns, images);
 
     // 3. Persist incident in session-scoped storage if session available
     if (req.session) {

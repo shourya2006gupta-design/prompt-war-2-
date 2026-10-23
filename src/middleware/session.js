@@ -2,9 +2,29 @@ import crypto from "crypto";
 
 export const MAX_ACTIVE_SESSIONS = 5000;
 export const SESSION_INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+export const MAX_FILES_PER_SESSION = 5;
+export const MAX_SESSION_UPLOAD_STORAGE_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_GLOBAL_UPLOAD_STORAGE_BYTES = 200 * 1024 * 1024; // 200 MB
+export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // In-memory session store: Map<sessionId, SessionData>
 const sessions = new Map();
+
+/**
+ * Calculate total in-memory upload bytes across all active sessions
+ * @returns {number}
+ */
+export function getGlobalUploadStorageBytes() {
+  let total = 0;
+  for (const session of sessions.values()) {
+    if (session.files && session.files instanceof Map) {
+      for (const file of session.files.values()) {
+        total += file.sizeBytes || 0;
+      }
+    }
+  }
+  return total;
+}
 
 /**
  * Sweep expired sessions from memory
@@ -82,6 +102,9 @@ export function sessionMiddleware(req, res, next) {
       sessionId = null;
     } else {
       session.lastActive = now;
+      if (!session.files) {
+        session.files = new Map();
+      }
       req.session = session;
     }
   }
@@ -108,6 +131,7 @@ export function sessionMiddleware(req, res, next) {
       lastActive: now,
       confirmedJurisdiction: null,
       incidents: [],
+      files: new Map(), // Phase B: Map<fileId, { id, buffer, mimeType, sizeBytes, originalName, uploadedAt }>
     };
 
     sessions.set(sessionId, newSession);

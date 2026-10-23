@@ -3,7 +3,7 @@ import { HazardCategoryEnum } from "./authority.js";
 
 export const ConfidenceLevelEnum = z.enum(["HIGH", "MEDIUM", "LOW"]);
 export const UrgencyLevelEnum = z.enum(["IMMEDIATE", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]);
-export const TrustStateEnum = z.enum(["USER_REPORTED", "AI_INFERRED", "USER_VERIFIED"]);
+export const TrustStateEnum = z.enum(["USER_REPORTED", "AI_INFERRED", "USER_VERIFIED", "EVIDENCE_SUPPORTED"]);
 
 /**
  * Raw AI output schema
@@ -36,10 +36,10 @@ export const AnalyzeResponseSchema = z.object({
 /**
  * IncidentField wrapper with server-assigned trust state
  */
-export function createIncidentField(value, confidence, source) {
+export function createIncidentField(value, confidence, source, trustState = "AI_INFERRED") {
   return {
     value,
-    trustState: "AI_INFERRED",
+    trustState,
     source,
     confidence,
     lastModifiedAt: new Date().toISOString(),
@@ -50,39 +50,48 @@ export function createIncidentField(value, confidence, source) {
  * Transform validated AI response into server-assigned trust-annotated response
  * @param {z.infer<typeof AnalyzeResponseSchema>} rawAiOutput
  * @param {string} modelName
+ * @param {boolean} [hasImageEvidence=false]
  */
-export function buildTrustAnnotatedReport(rawAiOutput, modelName) {
-  const source = `AI (${modelName})`;
+export function buildTrustAnnotatedReport(rawAiOutput, modelName, hasImageEvidence = false) {
+  const baseSource = `AI (${modelName})`;
+  const visualSource = hasImageEvidence ? `AI (${modelName}) + Visual Evidence` : baseSource;
+  const visualTrustState = hasImageEvidence ? "EVIDENCE_SUPPORTED" : "AI_INFERRED";
 
   return {
     hazardCategory: createIncidentField(
       rawAiOutput.hazardCategory,
       rawAiOutput.hazardCategoryConfidence,
-      source
+      visualSource,
+      visualTrustState
     ),
     description: createIncidentField(
       rawAiOutput.description,
       rawAiOutput.descriptionConfidence,
-      source
+      visualSource,
+      visualTrustState
     ),
     urgencyLevel: createIncidentField(
       rawAiOutput.urgencyLevel,
       rawAiOutput.urgencyConfidence,
-      source
+      visualSource,
+      visualTrustState
     ),
     locationText: createIncidentField(
       rawAiOutput.locationText,
       rawAiOutput.locationConfidence,
-      source
+      baseSource,
+      "AI_INFERRED"
     ),
     inferredJurisdiction: createIncidentField(
       rawAiOutput.inferredJurisdiction,
       "MEDIUM", // Jurisdiction inference is treated as medium confidence until user confirms
-      source
+      baseSource,
+      "AI_INFERRED"
     ),
     missingCriticalFields: rawAiOutput.missingCriticalFields,
     clarificationQuestions: rawAiOutput.clarificationQuestions,
     incidentSummary: rawAiOutput.incidentSummary,
     detectedLanguage: rawAiOutput.detectedLanguage,
+    hasImageEvidence,
   };
 }

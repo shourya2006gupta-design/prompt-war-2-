@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="SafeRoute — GenAI-powered public infrastructure hazard documentation and response guidance.">
   <title>SafeRoute — Public Infrastructure Hazard Reporting</title>
-  <link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="./index.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="color-scheme" content="dark light">
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <!-- Always-available country-neutral emergency notice (no JS, no network required) -->
-  <header class="app-header">
+  <header class="app-header" role="banner">
     <div class="emergency-notice" id="emergency-notice" role="region" aria-label="Emergency safety notice">
       <div class="emergency-notice__content">
         <p class="emergency-notice__primary">
@@ -58,7 +60,7 @@
     </div>
   </aside>
 
-  <main class="container main-content" id="main-content">
+  <main class="container main-content" id="main-content" role="main">
     <section class="reporting-section" aria-labelledby="report-section-title">
       <h2 id="report-section-title" class="section-title">Document a Public Hazard</h2>
       <p class="section-subtitle">
@@ -102,6 +104,33 @@
           >
           <div id="location-help" class="form-help">Enter the street, landmark, town, or city.</div>
           <div id="location-error" class="form-error hidden" role="alert"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="hazard-image" class="form-label">
+            Visual Evidence (Photos) <span class="form-optional">(Optional — max 5 images, 5 MB each)</span>
+          </label>
+          <div class="upload-dropzone" id="upload-dropzone">
+            <input
+              type="file"
+              id="hazard-image"
+              name="hazardImage"
+              class="upload-input"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              aria-describedby="upload-storage-notice upload-error"
+            >
+            <div class="upload-dropzone__content">
+              <span class="upload-icon" aria-hidden="true">📷</span>
+              <p class="upload-prompt"><strong>Choose photos</strong> or drag & drop here</p>
+              <p class="upload-formats">Supported formats: JPEG, PNG, WebP (EXIF and GPS metadata are stripped automatically)</p>
+            </div>
+          </div>
+          <div id="upload-storage-notice" class="upload-storage-notice" role="note">
+            <small>⚠️ Storage Notice: Uploaded images are held in server memory and will be lost if the server restarts. Download your report to preserve it.</small>
+          </div>
+          <div id="upload-preview-container" class="upload-previews hidden" aria-live="polite"></div>
+          <div id="upload-error" class="form-error hidden" role="alert"></div>
         </div>
 
         <div class="form-actions">
