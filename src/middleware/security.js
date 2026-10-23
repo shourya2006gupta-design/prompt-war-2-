@@ -26,7 +26,12 @@ export const helmetMiddleware = helmet({
 });
 
 /**
- * Origin validation middleware for state-changing requests
+ * Origin validation middleware for state-changing requests.
+ *
+ * Allowed origins (in priority order):
+ *   1. ALLOWED_ORIGIN env var — set this to your production URL in Netlify env vars
+ *   2. localhost variants — always allowed in development / test
+ *   3. *.netlify.app — Netlify deploy previews (branch and PR previews)
  */
 export function originValidationMiddleware(req, res, next) {
   // Only validate on state-changing requests
@@ -37,23 +42,39 @@ export function originValidationMiddleware(req, res, next) {
 
   const origin = req.headers.origin;
   const allowedOrigin = config.ALLOWED_ORIGIN;
+  const nodeEnv = process.env.NODE_ENV || "development";
 
-  // In test environment, allow if origin header matches or if localhost
+  // Require an Origin header on all mutating requests
   if (!origin) {
     return res.status(403).json({
       error: "Forbidden: Origin header is required on state-changing requests.",
     });
   }
 
-  // Normalize origins (ignore trailing slash)
+  // Normalize by stripping trailing slash
   const normOrigin = origin.replace(/\/$/, "");
   const normAllowed = allowedOrigin.replace(/\/$/, "");
 
-  if (normOrigin !== normAllowed && normOrigin !== "http://localhost:3000" && normOrigin !== "http://127.0.0.1:3000") {
-    return res.status(403).json({
-      error: `Forbidden: Origin '${origin}' is not authorized.`,
-    });
+  // 1. Explicitly configured origin always allowed
+  if (normOrigin === normAllowed) {
+    return next();
   }
 
-  next();
+  // 2. Localhost always allowed in non-production environments
+  if (
+    nodeEnv !== "production" &&
+    (normOrigin === "http://localhost:3000" || normOrigin === "http://127.0.0.1:3000")
+  ) {
+    return next();
+  }
+
+  // 3. Netlify deploy-preview and branch-deploy URLs (*.netlify.app)
+  //    This allows PR preview deployments to work without manual config.
+  if (/^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(normOrigin)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    error: `Forbidden: Origin '${origin}' is not authorized.`,
+  });
 }

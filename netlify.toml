@@ -1,0 +1,36 @@
+# ── SafeRoute — Netlify Configuration ────────────────────────────────────────
+
+[build]
+  # No build step needed for a plain HTML/CSS/JS frontend
+  publish = "public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# ── Redirect Rules ────────────────────────────────────────────────────────────
+# All API requests → serverless function
+[[redirects]]
+  from   = "/api/*"
+  to     = "/.netlify/functions/api/api/:splat"
+  status = 200
+  force  = true
+
+# ── Headers ───────────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"
+
+# ── Function configuration ────────────────────────────────────────────────────
+[functions]
+  node_bundler = "esbuild"
+  # Include the data directory so esbuild bundles it alongside the function
+  included_files = ["data/**"]
