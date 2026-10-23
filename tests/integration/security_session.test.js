@@ -1,5 +1,5 @@
 import request from "supertest";
-import { jest, describe, test, expect, beforeEach } from "@jest/globals";
+import { jest, describe, test, expect, beforeEach, afterEach } from "@jest/globals";
 import { createApp } from "../../src/app.js";
 import {
   clearAllSessions,
@@ -7,13 +7,42 @@ import {
   SESSION_INACTIVITY_MS,
   sweepExpiredSessions,
 } from "../../src/middleware/session.js";
+import crypto from "crypto";
+import { setGenAIClient } from "../../src/services/gemini.js";
+
+const mockAiResponse = {
+  hazardCategory: "FALLEN_TREE",
+  hazardCategoryConfidence: "HIGH",
+  description: "Fallen tree blocking two lanes on high street",
+  descriptionConfidence: "HIGH",
+  urgencyLevel: "HIGH",
+  urgencyConfidence: "HIGH",
+  locationText: "High Street",
+  locationConfidence: "HIGH",
+  inferredJurisdiction: "Camden, London",
+  missingCriticalFields: [],
+  clarificationQuestions: [],
+  incidentSummary: "Fallen tree blocking roadway lanes",
+  detectedLanguage: "en",
+};
 
 describe("Phase A1: Session and Security Middleware Hardening", () => {
   let app;
 
   beforeEach(() => {
     clearAllSessions();
+    setGenAIClient({
+      models: {
+        generateContent: jest.fn().mockResolvedValue({
+          text: JSON.stringify(mockAiResponse),
+        }),
+      },
+    });
     app = createApp();
+  });
+
+  afterEach(() => {
+    setGenAIClient(null);
   });
 
   describe("Security Headers (Helmet)", () => {
@@ -151,7 +180,7 @@ describe("Phase A1: Session and Security Middleware Hardening", () => {
         .send({ message: "Fallen tree blocking two lanes on high street" });
 
       expect(res.status).toBe(200);
-      expect(res.body.status).toBe("ok");
+      expect(res.body.hazardCategory).toBeDefined();
     });
   });
 

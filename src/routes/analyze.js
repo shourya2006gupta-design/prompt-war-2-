@@ -1,11 +1,13 @@
 import express from "express";
 import { AnalyzeRequestSchema } from "../schemas/api.js";
+import { analyzeHazardInput, AiValidationError } from "../services/gemini.js";
 import { analyzeLimiter } from "../middleware/rateLimit.js";
 import { csrfProtection } from "../middleware/csrf.js";
 
 const router = express.Router();
 
-router.post("/analyze", analyzeLimiter, csrfProtection, (req, res) => {
+router.post("/analyze", analyzeLimiter, csrfProtection, async (req, res, next) => {
+  // 1. Strict validation of request body
   const result = AnalyzeRequestSchema.safeParse(req.body);
   if (!result.success) {
     return res.status(400).json({
@@ -14,14 +16,47 @@ router.post("/analyze", analyzeLimiter, csrfProtection, (req, res) => {
     });
   }
 
-  // Placeholder response for Phase A1 pipeline testing; full Gemini service connected in Phase A3
-  return res.status(200).json({
-    status: "ok",
-    received: {
-      messageLength: result.data.message.length,
-      hasLocation: Boolean(result.data.locationText),
-    },
-  });
+  const { message, locationText, priorTurns } = result.data;
+
+  try {
+    // 2. Call AI analysis pipeline with strict schema validation
+    const structuredReport = await analyzeHazardInput(message, locationText, priorTurns);
+
+    // 3. Persist incident in session-scoped storage if session available
+    if (req.session) {
+      if (!Array.isArray(req.session.incidents)) {
+        req.session.incidents = [];
+      }
+      req.session.incidents.push({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        status: "AWAITING_USER_REVIEW",
+        report: structuredReport,
+      });
+    }
+
+    // 4. Return server-validated, trust-annotated structured report
+    return res.status(200).json(structuredReport);
+  } catch (err) {
+    if (err instanceof AiValidationError || err.status === 422) {
+      return res.status(422).json({
+        error: "AI Response Validation Failed: The model output did not satisfy safety or schema constraints.",
+        details: err.details || null,
+      });
+    }
+
+    if (err.status === 503) {
+      return res.status(503).json({
+        error: "AI service temporarily unavailable. Please try again in a few moments.",
+      });
+    }
+
+    // Never leak internal API details or stack traces
+    console.error("[SafeRoute AI Pipeline Error]", err.message);
+    return res.status(500).json({
+      error: "An unexpected error occurred during incident analysis.",
+    });
+  }
 });
 
 export default router;
