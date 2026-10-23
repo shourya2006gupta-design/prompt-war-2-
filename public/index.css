@@ -12,9 +12,9 @@
   --border-color: #273553;
   --border-focus: #3b82f6;
 
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-main: #f8fafc;
+  --text-muted: #cbd5e1;
+  --text-dim: #94a3b8;
 
   --accent-blue: #2563eb;
   --accent-blue-hover: #1d4ed8;
@@ -53,6 +53,12 @@
   padding: 0;
 }
 
+/* Accessible Global Focus States */
+:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
@@ -61,6 +67,28 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Accessibility: Skip to Main Content Link */
+.skip-link {
+  position: absolute;
+  top: -70px;
+  left: 1rem;
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  padding: 0.65rem 1.25rem;
+  z-index: 9999;
+  text-decoration: none;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  transition: top 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skip-link:focus {
+  top: 1rem;
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
 }
 
 /* Accessibility: Visually Hidden but Screen-Reader Accessible */
@@ -260,10 +288,12 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.form-control:focus {
-  outline: none;
+.form-control:focus,
+.form-control:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
 }
 
 .form-help {

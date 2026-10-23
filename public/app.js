@@ -858,6 +858,7 @@ export function renderJurisdictionSection(report) {
   customInput.id = "jurisdiction-custom-input";
   customInput.className = "form-control hidden";
   customInput.placeholder = "Enter municipality, county, or state";
+  customInput.setAttribute("aria-label", "Specify custom or other jurisdiction");
 
   select.addEventListener("change", (e) => {
     if (e.target.value === "CUSTOM") {
@@ -1010,11 +1011,13 @@ export async function handleReportSubmit(e) {
     descError.classList.add("hidden");
     descError.textContent = "";
   }
+  descInput.removeAttribute("aria-invalid");
 
   const message = descInput.value.trim();
   const locationText = locInput ? locInput.value.trim() : "";
 
   if (!message) {
+    descInput.setAttribute("aria-invalid", "true");
     if (descError) {
       descError.textContent = "Please provide a description of the hazard.";
       descError.classList.remove("hidden");
