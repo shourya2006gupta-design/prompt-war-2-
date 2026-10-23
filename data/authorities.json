@@ -1,0 +1,35 @@
+[
+  {
+    "id": "uk-national-highways",
+    "name": "National Highways (England)",
+    "jurisdiction": {
+      "countryCode": "GB",
+      "region": "England",
+      "locality": null,
+      "coverageNote": "Motorways and major A-roads in England managed by National Highways"
+    },
+    "jurisdictionAliases": [
+      "united kingdom",
+      "uk",
+      "england",
+      "great britain"
+    ],
+    "acceptedHazardTypes": [
+      "ROAD_DAMAGE",
+      "DANGEROUS_DEBRIS",
+      "FLOODING",
+      "FALLEN_TREE"
+    ],
+    "contactMethod": "LINK",
+    "reportingUrl": "https://report.nationalhighways.co.uk",
+    "verificationSource": {
+      "url": "https://report.nationalhighways.co.uk",
+      "pageTitle": "Report a problem on a major road or motorway",
+      "verifiedDate": "2026-10-23",
+      "verifiedBy": "SafeRoute Verification Team"
+    },
+    "integrationStatus": "LINK_ONLY",
+    "disclaimer": "SafeRoute has not submitted this report on your behalf. You must use the link above to submit your report directly.",
+    "availabilityStatus": "ACTIVE"
+  }
+]

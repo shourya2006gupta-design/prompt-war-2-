@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SafeRoute — GenAI-powered public infrastructure hazard documentation and response guidance.">
+  <title>SafeRoute — Public Infrastructure Hazard Reporting</title>
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <!-- Always-available country-neutral emergency notice (no JS, no network required) -->
+  <header class="app-header">
+    <div class="emergency-notice" id="emergency-notice" role="region" aria-label="Emergency safety notice">
+      <div class="emergency-notice__content">
+        <p class="emergency-notice__primary">
+          <strong>If anyone is in immediate danger or requires urgent medical, fire, or police assistance</strong>, 
+          call your local emergency services immediately. Do not wait for this application to load or respond.
+        </p>
+        <p class="emergency-notice__secondary">
+          SafeRoute is for non-urgent public infrastructure hazard documentation and reporting guidance only.
+        </p>
+      </div>
+    </div>
+
+    <noscript>
+      <div class="emergency-notice emergency-notice--noscript" role="alert">
+        <p><strong>If this is an emergency, contact your local emergency services immediately.</strong></p>
+        <p>This application requires JavaScript to assist with report preparation. Please contact your local municipal council or road authority directly.</p>
+      </div>
+    </noscript>
+
+    <div class="brand-bar">
+      <div class="container brand-bar__inner">
+        <div class="brand-title">
+          <span class="brand-icon" aria-hidden="true">🛡️</span>
+          <h1>SafeRoute</h1>
+        </div>
+        <p class="brand-tagline">Civic Infrastructure Hazard Intake & Response Guidance</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Supplementary dynamic keyword warning banner (hidden by default) -->
+  <aside id="supplementary-emergency-banner" class="supplementary-banner hidden" role="alert" aria-live="assertive">
+    <div class="container supplementary-banner__content">
+      <div class="supplementary-banner__icon" aria-hidden="true">⚠️</div>
+      <div class="supplementary-banner__text">
+        <p class="supplementary-banner__heading"><strong>Urgent Safety Alert Detected</strong></p>
+        <p id="supplementary-banner-body">
+          Your description may involve an immediately dangerous situation. If anyone is at risk, act now — contact your local emergency services immediately.
+        </p>
+        <p class="supplementary-banner__disclaimer">
+          <small>Note: This alert is triggered by keywords in your description. SafeRoute cannot assess whether an emergency exists.</small>
+        </p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="container main-content" id="main-content">
+    <section class="reporting-section" aria-labelledby="report-section-title">
+      <h2 id="report-section-title" class="section-title">Document a Public Hazard</h2>
+      <p class="section-subtitle">
+        Describe damage to roads, fallen trees, flooding, utility lines, or hazards in plain language.
+      </p>
+
+      <form id="hazard-report-form" class="hazard-form" novalidate>
+        <div class="form-group">
+          <label for="hazard-description" class="form-label">
+            Hazard Description <span class="required" aria-hidden="true">*</span>
+          </label>
+          <textarea
+            id="hazard-description"
+            name="hazardDescription"
+            class="form-control"
+            rows="5"
+            placeholder="e.g. A large oak tree fell across two lanes on Elm Street near the park entrance, pulling down power wires."
+            maxlength="2000"
+            required
+            aria-describedby="description-help description-error"
+          ></textarea>
+          <div id="description-help" class="form-help">Max 2,000 characters. Describe what you observe safely without putting yourself in danger.</div>
+          <div id="description-error" class="form-error hidden" role="alert"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="hazard-location" class="form-label">Location Details</label>
+          <input
+            type="text"
+            id="hazard-location"
+            name="hazardLocation"
+            class="form-control"
+            placeholder="e.g. Elm Street near Oak Avenue, Manchester, England"
+            maxlength="500"
+            aria-describedby="location-help location-error"
+          >
+          <div id="location-help" class="form-help">Enter the street, landmark, town, or city.</div>
+          <div id="location-error" class="form-error hidden" role="alert"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-report-btn" class="btn btn-primary">
+            Analyze & Structure Report
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Analysis Loading & Status Region -->
+    <div id="analysis-live-region" class="sr-only" aria-live="polite"></div>
+
+    <!-- Incident Output Container -->
+    <section id="incident-results-section" class="results-section hidden" aria-labelledby="results-title">
+      <h2 id="results-title" class="section-title">Structured Incident Assessment</h2>
+      
+      <div id="incident-card" class="incident-card">
+        <!-- Rendered dynamically with textContent only -->
+      </div>
+
+      <!-- Clarification Questions -->
+      <div id="clarifications-container" class="clarifications-box hidden" aria-live="polite">
+        <h3>Additional Information Needed</h3>
+        <div id="clarifications-list"></div>
+      </div>
+
+      <!-- Jurisdiction Confirmation & Authority Routing -->
+      <div id="routing-container" class="routing-box">
+        <h3>Reporting Authority Routing</h3>
+        <div id="jurisdiction-confirmation-box" class="jurisdiction-box">
+          <!-- User confirmation UI -->
+        </div>
+        <div id="authority-results-box" class="authority-results">
+          <!-- Verified authorities or honest no-match message -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Session Dashboard -->
+    <section class="dashboard-section" aria-labelledby="dashboard-title">
+      <h2 id="dashboard-title" class="section-title">Session Incident Dashboard</h2>
+      <p class="dashboard-notice">
+        <small>Reports are stored in your current browser tab only and will be cleared when the tab is closed.</small>
+      </p>
+      <div id="session-incidents-list" class="incident-list">
+        <p class="empty-state">No incidents drafted in this session yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="container footer-content">
+      <p>SafeRoute — Public Safety Hackathon Demonstration</p>
+      <p><small>SafeRoute provides report structuring and honest authority direction. It never claims automated submission.</small></p>
+    </div>
+  </footer>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

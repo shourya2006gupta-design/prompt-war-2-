@@ -1,0 +1,20 @@
+[
+  {
+    "jurisdictionAliases": ["united kingdom", "uk", "england", "wales", "scotland", "great britain"],
+    "number": "999",
+    "serviceDescription": "Police, Fire, Ambulance, Coastguard",
+    "verificationSource": "https://www.gov.uk/contact-police — verified 2026-10-23 by SafeRoute Team"
+  },
+  {
+    "jurisdictionAliases": ["australia", "nsw", "new south wales", "victoria", "queensland", "western australia", "south australia", "tasmania", "act", "northern territory"],
+    "number": "000",
+    "serviceDescription": "Police, Fire, Ambulance",
+    "verificationSource": "https://www.triplezero.gov.au — verified 2026-10-23 by SafeRoute Team"
+  },
+  {
+    "jurisdictionAliases": ["united states", "usa", "us", "california", "new york", "texas", "florida"],
+    "number": "911",
+    "serviceDescription": "Police, Fire, Emergency Medical Services",
+    "verificationSource": "https://www.911.gov — verified 2026-10-23 by SafeRoute Team"
+  }
+]

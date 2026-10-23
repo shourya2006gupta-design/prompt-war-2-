@@ -1,0 +1,94 @@
+[
+  {
+    "id": "scotland-transport-scotland-candidate",
+    "name": "Traffic Scotland / Transport Scotland",
+    "jurisdiction": {
+      "countryCode": "GB",
+      "region": "Scotland",
+      "locality": null,
+      "coverageNote": "Scottish trunk road network"
+    },
+    "jurisdictionAliases": ["scotland"],
+    "acceptedHazardTypes": ["ROAD_DAMAGE", "FLOODING"],
+    "contactMethod": "LINK",
+    "reportingUrl": "https://www.traffic.gov.scot/report-a-problem",
+    "verificationSource": {
+      "url": "https://www.traffic.gov.scot",
+      "pageTitle": "Traffic Scotland Report",
+      "verifiedDate": "2026-10-23",
+      "verifiedBy": "SafeRoute Candidate Reviewer"
+    },
+    "integrationStatus": "LINK_ONLY",
+    "disclaimer": "SafeRoute has not submitted this report on your behalf.",
+    "availabilityStatus": "UNVERIFIED"
+  },
+  {
+    "id": "nsw-transport-for-nsw-candidate",
+    "name": "Transport for NSW",
+    "jurisdiction": {
+      "countryCode": "AU",
+      "region": "New South Wales",
+      "locality": null,
+      "coverageNote": "State roads and highways across NSW"
+    },
+    "jurisdictionAliases": ["nsw", "new south wales", "sydney"],
+    "acceptedHazardTypes": ["ROAD_DAMAGE", "FALLEN_TREE"],
+    "contactMethod": "LINK",
+    "reportingUrl": "https://www.service.nsw.gov.au/services/roads-and-driving",
+    "verificationSource": {
+      "url": "https://www.service.nsw.gov.au",
+      "pageTitle": "Service NSW Roads",
+      "verifiedDate": "2026-10-23",
+      "verifiedBy": "SafeRoute Candidate Reviewer"
+    },
+    "integrationStatus": "LINK_ONLY",
+    "disclaimer": "SafeRoute has not submitted this report on your behalf.",
+    "availabilityStatus": "UNVERIFIED"
+  },
+  {
+    "id": "caltrans-district-candidate",
+    "name": "Caltrans Customer Service Request",
+    "jurisdiction": {
+      "countryCode": "US",
+      "region": "California",
+      "locality": null,
+      "coverageNote": "California State Highway System"
+    },
+    "jurisdictionAliases": ["california", "ca"],
+    "acceptedHazardTypes": ["ROAD_DAMAGE", "DANGEROUS_DEBRIS"],
+    "contactMethod": "LINK",
+    "reportingUrl": "https://csr.dot.ca.gov",
+    "verificationSource": {
+      "url": "https://csr.dot.ca.gov",
+      "pageTitle": "Caltrans Maintenance Service Request",
+      "verifiedDate": "2026-10-23",
+      "verifiedBy": "SafeRoute Candidate Reviewer"
+    },
+    "integrationStatus": "LINK_ONLY",
+    "disclaimer": "SafeRoute has not submitted this report on your behalf.",
+    "availabilityStatus": "UNVERIFIED"
+  },
+  {
+    "id": "nyc-311-candidate",
+    "name": "NYC 311 Pothole & Road Hazard Service",
+    "jurisdiction": {
+      "countryCode": "US",
+      "region": "New York",
+      "locality": "New York City",
+      "coverageNote": "Five boroughs of New York City"
+    },
+    "jurisdictionAliases": ["new york city", "nyc", "manhattan", "brooklyn", "queens", "bronx", "staten island"],
+    "acceptedHazardTypes": ["ROAD_DAMAGE", "FLOODING", "FALLEN_TREE"],
+    "contactMethod": "LINK",
+    "reportingUrl": "https://portal.311.nyc.gov/article/?kanumber=KA-01090",
+    "verificationSource": {
+      "url": "https://portal.311.nyc.gov",
+      "pageTitle": "NYC 311 Street Hazard Reporting",
+      "verifiedDate": "2026-10-23",
+      "verifiedBy": "SafeRoute Candidate Reviewer"
+    },
+    "integrationStatus": "LINK_ONLY",
+    "disclaimer": "SafeRoute has not submitted this report on your behalf.",
+    "availabilityStatus": "UNVERIFIED"
+  }
+]
