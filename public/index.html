@@ -174,10 +174,19 @@
 
     <!-- Session Dashboard -->
     <section class="dashboard-section" aria-labelledby="dashboard-title">
-      <h2 id="dashboard-title" class="section-title">Session Incident Dashboard</h2>
-      <p class="dashboard-notice">
-        <small>Reports are stored in your current browser tab only and will be cleared when the tab is closed.</small>
-      </p>
+      <div class="dashboard-header">
+        <div>
+          <h2 id="dashboard-title" class="section-title">Session Incident Dashboard</h2>
+          <p class="dashboard-notice">
+            <small>Reports are stored in your current browser tab only (sessionStorage) and will be cleared when the tab is closed.</small>
+          </p>
+        </div>
+        <div class="dashboard-actions">
+          <button type="button" id="clear-session-btn" class="btn btn-outline btn-sm hidden">
+            Clear All Incidents
+          </button>
+        </div>
+      </div>
       <div id="session-incidents-list" class="incident-list">
         <p class="empty-state">No incidents drafted in this session yet.</p>
       </div>

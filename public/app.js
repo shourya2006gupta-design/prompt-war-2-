@@ -25,7 +25,12 @@ let inferredJurisdiction = null;
 let jurisdictionTrustState = null;
 
 let activeReport = null;
+let activeIncidentId = null;
+let activeIncidentStatus = "DRAFT";
+let activeIncidentCreatedAt = null;
 let conversationTurns = [];
+
+const SESSION_STORAGE_KEY = "saferoute_session_incidents";
 
 export const HAZARD_CATEGORIES = [
   { value: "ROAD_DAMAGE", label: "Road Damage / Pothole" },
@@ -105,6 +110,330 @@ export function setActiveReport(report) {
   activeReport = report;
 }
 
+export function getActiveIncidentId() {
+  return activeIncidentId;
+}
+
+export function setActiveIncidentId(id) {
+  activeIncidentId = id;
+}
+
+export function getActiveIncidentStatus() {
+  return activeIncidentStatus;
+}
+
+export function setActiveIncidentStatus(status) {
+  activeIncidentStatus = status;
+}
+
+/**
+ * Generate unique incident ID
+ */
+export function generateIncidentId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "inc-" + Date.now() + "-" + Math.random().toString(36).substring(2, 9);
+}
+
+/**
+ * Load incidents array from sessionStorage
+ * @returns {Array}
+ */
+export function loadSessionIncidents() {
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      const data = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("[SafeRoute] Could not access sessionStorage:", err.message);
+  }
+  return [];
+}
+
+/**
+ * Save incidents array to sessionStorage
+ * @param {Array} incidents
+ */
+export function saveSessionIncidents(incidents) {
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(incidents));
+    }
+  } catch (err) {
+    console.warn("[SafeRoute] Failed to write to sessionStorage:", err.message);
+  }
+}
+
+/**
+ * Save or update the active incident in sessionStorage
+ * @param {string|null} statusOverride
+ */
+export function saveCurrentIncident(statusOverride = null) {
+  if (!activeReport) return null;
+  if (!activeIncidentId) {
+    activeIncidentId = generateIncidentId();
+    activeIncidentCreatedAt = new Date().toISOString();
+  }
+  if (statusOverride) {
+    activeIncidentStatus = statusOverride;
+  }
+
+  const now = new Date().toISOString();
+  const incidents = loadSessionIncidents();
+  const existingIdx = incidents.findIndex(item => item.id === activeIncidentId);
+
+  const incidentRecord = {
+    id: activeIncidentId,
+    createdAt: activeIncidentCreatedAt || now,
+    updatedAt: now,
+    status: activeIncidentStatus || "DRAFT",
+    report: activeReport,
+  };
+
+  if (existingIdx >= 0) {
+    incidents[existingIdx] = incidentRecord;
+  } else {
+    incidents.unshift(incidentRecord);
+  }
+
+  saveSessionIncidents(incidents);
+  renderSessionDashboard();
+  return incidentRecord;
+}
+
+/**
+ * Remove an incident from sessionStorage by ID
+ * @param {string} id
+ */
+export function removeIncidentFromSession(id) {
+  const incidents = loadSessionIncidents().filter(item => item.id !== id);
+  saveSessionIncidents(incidents);
+  if (activeIncidentId === id) {
+    resetReport();
+  }
+  renderSessionDashboard();
+}
+
+/**
+ * Clear all incidents from sessionStorage
+ */
+export function clearAllSessionIncidents() {
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch (err) {
+    console.warn("[SafeRoute] Could not clear sessionStorage:", err.message);
+  }
+  resetReport();
+  renderSessionDashboard();
+}
+
+/**
+ * Export an incident as a clean, trust-annotated JSON file
+ * @param {object} incidentRecord
+ */
+export function exportIncidentAsJson(incidentRecord) {
+  if (!incidentRecord || !incidentRecord.report) return;
+
+  const exportPayload = {
+    safeRouteSchemaVersion: "1.0.0",
+    incidentId: incidentRecord.id,
+    status: incidentRecord.status,
+    createdAt: incidentRecord.createdAt,
+    updatedAt: incidentRecord.updatedAt,
+    exportedAt: new Date().toISOString(),
+    report: incidentRecord.report,
+    ...(incidentRecord.authorityHandoff ? { authorityHandoff: incidentRecord.authorityHandoff } : {}),
+  };
+
+  const jsonStr = JSON.stringify(exportPayload, null, 2);
+
+  if (typeof Blob !== "undefined" && typeof document !== "undefined") {
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `saferoute-incident-${incidentRecord.id.slice(0, 8)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Load an incident from the dashboard back into the active review card
+ * @param {object} incidentRecord
+ */
+export function loadIncidentForReview(incidentRecord) {
+  if (!incidentRecord || !incidentRecord.report) return;
+  activeIncidentId = incidentRecord.id;
+  activeIncidentStatus = incidentRecord.status;
+  activeIncidentCreatedAt = incidentRecord.createdAt;
+  activeReport = incidentRecord.report;
+
+  // Restore confirmed jurisdiction if report had user-reported jurisdiction
+  const jurisVal = incidentRecord.report.inferredJurisdiction?.value || null;
+  const jurisTrust = incidentRecord.report.inferredJurisdiction?.trustState || null;
+  if (jurisTrust === "USER_REPORTED") {
+    setJurisdiction(jurisVal, "USER_REPORTED");
+  } else {
+    setJurisdiction(jurisVal, "AI_INFERRED");
+  }
+
+  handleAiAnalysisResponse(incidentRecord.report, false); // false = preserve activeIncidentId
+
+  const resultsSection = document.getElementById("incident-results-section");
+  if (resultsSection) {
+    resultsSection.classList.remove("hidden");
+    if (typeof resultsSection.scrollIntoView === "function") {
+      resultsSection.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+}
+
+/**
+ * Human-readable label for incident status
+ * @param {string} status
+ */
+export function formatStatusLabel(status) {
+  switch (status) {
+    case "READY_FOR_ROUTING":
+      return "Ready for Routing";
+    case "LINK_PROVIDED":
+      return "Link Provided";
+    case "USER_CONFIRMED_SUBMISSION":
+      return "Submission Confirmed";
+    default:
+      return "Draft";
+  }
+}
+
+/**
+ * Render session incidents list strictly using textContent
+ */
+export function renderSessionDashboard() {
+  const container = document.getElementById("session-incidents-list");
+  const clearBtn = document.getElementById("clear-session-btn");
+  if (!container) return;
+
+  container.textContent = "";
+
+  const incidents = loadSessionIncidents();
+  if (incidents.length === 0) {
+    const emptyP = document.createElement("p");
+    emptyP.className = "empty-state";
+    emptyP.textContent = "No incidents drafted in this session yet.";
+    container.appendChild(emptyP);
+
+    if (clearBtn) clearBtn.classList.add("hidden");
+    return;
+  }
+
+  if (clearBtn) clearBtn.classList.remove("hidden");
+
+  incidents.forEach(inc => {
+    const card = document.createElement("article");
+    card.className = "incident-item-card";
+    card.setAttribute("aria-labelledby", `inc-title-${inc.id}`);
+
+    // Header row
+    const header = document.createElement("div");
+    header.className = "inc-card-header";
+
+    const title = document.createElement("h3");
+    title.id = `inc-title-${inc.id}`;
+    title.className = "inc-card-title";
+
+    const categoryObj = HAZARD_CATEGORIES.find(c => c.value === inc.report?.hazardCategory?.value);
+    title.textContent = categoryObj ? categoryObj.label : (inc.report?.hazardCategory?.value || "Hazard Incident");
+
+    const statusBadge = document.createElement("span");
+    const statusClass = (inc.status || "DRAFT").toLowerCase();
+    statusBadge.className = `status-badge status-badge--${statusClass}`;
+    statusBadge.textContent = formatStatusLabel(inc.status || "DRAFT");
+
+    header.appendChild(title);
+    header.appendChild(statusBadge);
+    card.appendChild(header);
+
+    // Description snippet
+    const descP = document.createElement("p");
+    descP.className = "inc-card-desc";
+    const descText = inc.report?.description?.value || inc.report?.incidentSummary || "No description provided.";
+    descP.textContent = descText.length > 180 ? `${descText.slice(0, 180)}...` : descText;
+    card.appendChild(descP);
+
+    // Meta row
+    const meta = document.createElement("div");
+    meta.className = "inc-card-meta";
+
+    const urgSpan = document.createElement("span");
+    urgSpan.className = "inc-meta-item";
+    const urgStrong = document.createElement("strong");
+    urgStrong.textContent = "Urgency: ";
+    urgSpan.appendChild(urgStrong);
+    urgSpan.appendChild(document.createTextNode(inc.report?.urgencyLevel?.value || "UNKNOWN"));
+    meta.appendChild(urgSpan);
+
+    const jurisSpan = document.createElement("span");
+    jurisSpan.className = "inc-meta-item";
+    const jurisStrong = document.createElement("strong");
+    jurisStrong.textContent = "Jurisdiction: ";
+    jurisSpan.appendChild(jurisStrong);
+    const jurisVal = inc.report?.inferredJurisdiction?.value || "Unspecified";
+    const jurisTrust = inc.report?.inferredJurisdiction?.trustState === "USER_REPORTED" ? " (Confirmed)" : " (Inferred)";
+    jurisSpan.appendChild(document.createTextNode(`${jurisVal}${jurisTrust}`));
+    meta.appendChild(jurisSpan);
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "inc-meta-item";
+    const timeStrong = document.createElement("strong");
+    timeStrong.textContent = "Updated: ";
+    timeSpan.appendChild(timeStrong);
+    const updatedDate = new Date(inc.updatedAt || inc.createdAt);
+    timeSpan.appendChild(document.createTextNode(isNaN(updatedDate.getTime()) ? "Recently" : updatedDate.toLocaleTimeString()));
+    meta.appendChild(timeSpan);
+
+    card.appendChild(meta);
+
+    // Actions row
+    const actions = document.createElement("div");
+    actions.className = "inc-card-actions";
+
+    const viewBtn = document.createElement("button");
+    viewBtn.type = "button";
+    viewBtn.className = "btn btn-outline btn-sm btn-view-inc";
+    viewBtn.textContent = "View / Edit";
+    viewBtn.addEventListener("click", () => loadIncidentForReview(inc));
+
+    const exportBtn = document.createElement("button");
+    exportBtn.type = "button";
+    exportBtn.className = "btn btn-outline btn-sm btn-export-inc";
+    exportBtn.textContent = "Download JSON";
+    exportBtn.addEventListener("click", () => exportIncidentAsJson(inc));
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "btn btn-outline btn-sm btn-delete-inc";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => removeIncidentFromSession(inc.id));
+
+    actions.appendChild(viewBtn);
+    actions.appendChild(exportBtn);
+    actions.appendChild(removeBtn);
+    card.appendChild(actions);
+
+    container.appendChild(card);
+  });
+}
+
 /**
  * Fetch static datasets for client-side synchronous processing
  */
@@ -181,13 +510,20 @@ export function updateEmergencyBanner(isEmergency) {
  * Handle AI response rendering without overriding or suppressing the emergency banner
  * @param {object} aiResponse
  */
-export function handleAiAnalysisResponse(aiResponse) {
+export function handleAiAnalysisResponse(aiResponse, createNewId = true) {
   const banner = document.getElementById("supplementary-emergency-banner");
   const isBannerActive = banner && !banner.classList.contains("hidden");
 
   activeReport = aiResponse;
 
+  if (createNewId || !activeIncidentId) {
+    activeIncidentId = generateIncidentId();
+    activeIncidentStatus = "DRAFT";
+    activeIncidentCreatedAt = new Date().toISOString();
+  }
+
   renderIncidentReview(aiResponse);
+  saveCurrentIncident();
 
   const resultsSection = document.getElementById("incident-results-section");
   if (resultsSection) {
@@ -298,6 +634,7 @@ export function renderIncidentReview(report) {
       activeReport.hazardCategory.value = e.target.value;
       activeReport.hazardCategory.trustState = "USER_VERIFIED";
       activeReport.hazardCategory.source = "Citizen Verified";
+      saveCurrentIncident();
     }
     categoryBadge.className = "trust-badge trust-badge--user";
     categoryBadge.textContent = "User Verified";
@@ -345,6 +682,7 @@ export function renderIncidentReview(report) {
       activeReport.urgencyLevel.value = e.target.value;
       activeReport.urgencyLevel.trustState = "USER_VERIFIED";
       activeReport.urgencyLevel.source = "Citizen Verified";
+      saveCurrentIncident();
     }
     urgencyBadge.className = "trust-badge trust-badge--user";
     urgencyBadge.textContent = "User Verified";
@@ -382,6 +720,7 @@ export function renderIncidentReview(report) {
     if (activeReport && activeReport.description) {
       activeReport.description.value = e.target.value;
       activeReport.description.trustState = "USER_VERIFIED";
+      saveCurrentIncident();
     }
     descBadge.className = "trust-badge trust-badge--user";
     descBadge.textContent = "User Verified";
@@ -419,6 +758,7 @@ export function renderIncidentReview(report) {
     if (activeReport && activeReport.locationText) {
       activeReport.locationText.value = e.target.value;
       activeReport.locationText.trustState = "USER_VERIFIED";
+      saveCurrentIncident();
     }
     locBadge.className = "trust-badge trust-badge--user";
     locBadge.textContent = "User Verified";
@@ -554,6 +894,9 @@ export function renderJurisdictionSection(report) {
       activeReport.inferredJurisdiction.value = chosen;
       activeReport.inferredJurisdiction.trustState = "USER_REPORTED";
     }
+
+    activeIncidentStatus = "READY_FOR_ROUTING";
+    saveCurrentIncident("READY_FOR_ROUTING");
 
     jurisBadge.className = "trust-badge trust-badge--user";
     jurisBadge.textContent = "User Confirmed";
@@ -779,6 +1122,9 @@ export async function handleClarificationsSubmit() {
  */
 export function resetReport() {
   activeReport = null;
+  activeIncidentId = null;
+  activeIncidentStatus = "DRAFT";
+  activeIncidentCreatedAt = null;
   conversationTurns = [];
   setJurisdiction(null, null);
 
@@ -798,6 +1144,8 @@ export function resetReport() {
   if (descInput && typeof descInput.focus === "function") {
     descInput.focus();
   }
+
+  renderSessionDashboard();
 }
 
 /**
@@ -832,6 +1180,12 @@ export function initApp() {
     resetBtn.addEventListener("click", resetReport);
   }
 
+  const clearSessionBtn = document.getElementById("clear-session-btn");
+  if (clearSessionBtn) {
+    clearSessionBtn.addEventListener("click", clearAllSessionIncidents);
+  }
+
+  renderSessionDashboard();
   loadStaticData();
 }
 
