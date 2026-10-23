@@ -64,10 +64,15 @@
       </p>
 
       <form id="hazard-report-form" class="hazard-form" novalidate>
+        <div id="form-general-error" class="form-error-banner hidden" role="alert"></div>
+
         <div class="form-group">
-          <label for="hazard-description" class="form-label">
-            Hazard Description <span class="required" aria-hidden="true">*</span>
-          </label>
+          <div class="form-label-row">
+            <label for="hazard-description" class="form-label">
+              Hazard Description <span class="required" aria-hidden="true">*</span>
+            </label>
+            <span id="char-counter" class="char-counter" aria-live="polite">0 / 2,000 characters</span>
+          </div>
           <textarea
             id="hazard-description"
             name="hazardDescription"
@@ -99,18 +104,29 @@
 
         <div class="form-actions">
           <button type="submit" id="submit-report-btn" class="btn btn-primary">
-            Analyze & Structure Report
+            <span class="btn-text">Analyze & Structure Report</span>
+            <span class="btn-spinner hidden" aria-hidden="true">⏳</span>
           </button>
         </div>
       </form>
     </section>
 
     <!-- Analysis Loading & Status Region -->
-    <div id="analysis-live-region" class="sr-only" aria-live="polite"></div>
+    <div id="analysis-live-region" class="sr-only" role="status" aria-live="polite"></div>
 
     <!-- Incident Output Container -->
     <section id="incident-results-section" class="results-section hidden" aria-labelledby="results-title">
-      <h2 id="results-title" class="section-title">Structured Incident Assessment</h2>
+      <div class="results-header">
+        <h2 id="results-title" class="section-title" tabindex="-1">Structured Incident Assessment</h2>
+        <span class="trust-notice-pill">Review & Verify Fields</span>
+      </div>
+
+      <div class="trust-explainer" role="note">
+        <p><strong>Trust Transparency:</strong> Fields initially extracted by AI carry an 
+          <span class="trust-badge trust-badge--ai">AI Inferred</span> badge. Modifying any field converts it to 
+          <span class="trust-badge trust-badge--user">User Verified</span>.
+        </p>
+      </div>
       
       <div id="incident-card" class="incident-card">
         <!-- Rendered dynamically with textContent only -->
@@ -118,19 +134,41 @@
 
       <!-- Clarification Questions -->
       <div id="clarifications-container" class="clarifications-box hidden" aria-live="polite">
-        <h3>Additional Information Needed</h3>
-        <div id="clarifications-list"></div>
+        <h3 class="box-subtitle">Additional Details Required</h3>
+        <p class="box-description">The AI identified missing details that could improve response coordination:</p>
+        <div id="clarifications-list" class="clarifications-list"></div>
+        <div class="clarifications-actions">
+          <button type="button" id="submit-clarifications-btn" class="btn btn-secondary">
+            Update Report with Clarifications
+          </button>
+        </div>
       </div>
 
       <!-- Jurisdiction Confirmation & Authority Routing -->
       <div id="routing-container" class="routing-box">
-        <h3>Reporting Authority Routing</h3>
+        <h3 class="box-subtitle">Jurisdiction Confirmation & Authority Routing</h3>
+        <p class="box-description">
+          SafeRoute does not recommend reporting destinations based solely on AI inference. 
+          Please confirm your local jurisdiction to view verified reporting channels.
+        </p>
         <div id="jurisdiction-confirmation-box" class="jurisdiction-box">
-          <!-- User confirmation UI -->
+          <!-- Dynamic confirmation UI rendered by app.js -->
         </div>
-        <div id="authority-results-box" class="authority-results">
-          <!-- Verified authorities or honest no-match message -->
+        <div id="authority-actions" class="routing-actions">
+          <button type="button" id="find-authority-btn" class="btn btn-primary" disabled>
+            Find Reporting Authority
+          </button>
+          <span id="routing-hint" class="routing-hint">Confirm your jurisdiction above to unlock routing.</span>
         </div>
+        <div id="authority-results-box" class="authority-results hidden">
+          <!-- Populated in Phase A6 -->
+        </div>
+      </div>
+
+      <div class="report-completion-actions">
+        <button type="button" id="start-new-report-btn" class="btn btn-outline">
+          Start Another Report
+        </button>
       </div>
     </section>
 
