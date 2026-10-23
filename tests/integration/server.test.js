@@ -70,4 +70,18 @@ describe("Phase A0: Integration & Server Serving", () => {
     expect(csrfCookie).toBeDefined();
     expect(csrfCookie).toContain("SameSite=Strict");
   });
+
+  test("serves public emergency keywords dataset with JSON array", async () => {
+    const res = await request(app).get("/data/emergency-keywords.json");
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toContain("live wire sparking");
+  });
+
+  test("serves public emergency numbers dataset with JSON array", async () => {
+    const res = await request(app).get("/data/emergency-numbers.json");
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
 });
